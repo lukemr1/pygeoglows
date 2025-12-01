@@ -3,7 +3,7 @@ import datetime
 import os
 import io
 pio.kaleido.scope.mathjax = None
-from PyPDF2 import PDFMerger
+from PyPDF2 import PdfMerger
 from docx import Document
 from docx.shared import Inches
 import tempfile
@@ -15,7 +15,7 @@ from ._plots import plots
 
 today = datetime.date.today()
 
-def _save_plots_to_docx(plots, filename, report_type):
+def _save_plots_to_docx(figures, filename, report_type):
     """
     Helper function that accepts plotly figures and outputs a DOCX report.
     """
@@ -31,7 +31,7 @@ def _save_plots_to_docx(plots, filename, report_type):
     doc.add_paragraph('_' * 50)
     doc.add_paragraph('\n')
 
-    for i, fig in enumerate(plots):
+    for i, fig in enumerate(figures):
         # Save fig to bytes as png
         img_bytes = fig.to_image(format="png", width=1000, height=600, scale=2)
         img_stream = io.BytesIO(img_bytes)
@@ -44,15 +44,19 @@ def _save_plots_to_docx(plots, filename, report_type):
     # Add Comments Section
     doc.add_page_break()
     doc.add_heading('User Comments', level=1)
-    doc.add_paragraph("Please add any observations or notes regarding this report below:")
+    doc.add_paragraph("Please add any notes regarding this report below:")
     doc.add_paragraph("\n" * 10)
 
     doc.save(filename)
-    return filename
+
+    abs_path = os.path.abspath(filename)
+    print(f"Report saved to: {abs_path}")
+    return abs_path
+
 
 def forecast_report(riverids=None, user_data=None, date=None):
 
-    figs = []
+    figures = []
 
     if riverids is not None:
         if date is None:
@@ -63,18 +67,18 @@ def forecast_report(riverids=None, user_data=None, date=None):
         for r in riverids:
             data = forecast(river_id=r, date=formatted_date)
             fig = plots.forecast(data, plot_titles=["", f"Forecast for River: {r}"])
-            figs.append(fig)
+            figures.append(fig)
 
         report_date = date
 
     elif user_data is not None:
 
-        fig = plots.forecast(user_data, plot_titles=["", f"Forecast for River: {}"])
-        figs.append(fig)
+        fig = plots.forecast(user_data, plot_titles=["", f"Forecast for River"])
+        figures.append(fig)
 
         report_date = date if date else today
 
     else:
         raise ValueError("Must provide either 'riverids' or 'data'")
 
-    return _save_plots_to_docx(plots, f"forecast_report_{report_date}", "Forecast Report")
+    return _save_plots_to_docx(figures, f"forecast_report_{report_date}", "Forecast Report")

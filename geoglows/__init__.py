@@ -3,12 +3,13 @@ import geoglows._plots as plots
 import geoglows.data
 import geoglows.analyze
 import geoglows.tables
+import geoglows.reports
 
 from ._constants import set_uri
 from ._constants import get_uri
 
 __all__ = [
-    'bias', 'plots', 'data', 'analyze', 'tables',
+    'bias', 'plots', 'data', 'analyze', 'tables', 'reports',
     'set_uri', 'get_uri'
 ]
 
