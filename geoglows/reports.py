@@ -2,7 +2,6 @@ import plotly.io as pio
 import datetime
 import os
 import io
-pio.kaleido.scope.mathjax = None
 from PyPDF2 import PdfMerger
 from docx import Document
 from docx.shared import Inches
@@ -10,7 +9,7 @@ import tempfile
 import pandas as pd
 from plotly.subplots import make_subplots
 
-from .data import forecast
+from .data import forecast, retrospective
 from ._plots import plots
 
 today = datetime.date.today()
@@ -37,8 +36,12 @@ def _save_plots_to_docx(figures, filename, report_type):
         img_stream = io.BytesIO(img_bytes)
 
         # Add to doc
-        doc.add_picture(img_stream, width=Inches(7.0))
-        doc.add_paragraph(f"Figure {i + 1}")
+        paragraph = doc.add_paragraph()
+        paragraph.alignment = 1
+        paragraph.add_run().add_picture(img_stream, width=Inches(6.0))
+
+        caption = doc.add_paragraph(f"Figure {i+1}")
+        caption.alignment = 1
         doc.add_paragraph("\n")
 
     # Add Comments Section
@@ -81,4 +84,24 @@ def forecast_report(riverids=None, user_data=None, date=None):
     else:
         raise ValueError("Must provide either 'riverids' or 'data'")
 
-    return _save_plots_to_docx(figures, f"forecast_report_{report_date}", "Forecast Report")
+    return _save_plots_to_docx(figures, f"forecast_report_{report_date}.docx", "Forecast Report")
+
+def retrospective_report(riverids=None, user_data=None):
+
+    figures = []
+
+    if riverids is not None:
+
+        for r in riverids:
+            data = retrospective(river_id=r)
+            fig = plots.retrospective(data, plot_titles=["", f"Retrospective for River: {r}"])
+            figures.append(fig)
+
+    elif user_data is not None:
+        fig = plots.retrospective(user_data, plot_titles=["", f"Forecast for River"])
+        figures.append(fig)
+
+    else:
+        raise ValueError("Must provide either 'riverids' or 'data'")
+
+    return _save_plots_to_docx(figures, "retrospective_report.docx", "Retrospective Report")
