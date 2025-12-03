@@ -9,7 +9,7 @@ import tempfile
 import pandas as pd
 from plotly.subplots import make_subplots
 
-from .data import forecast, retrospective
+from .data import *
 from ._plots import plots
 
 today = datetime.date.today()
@@ -105,3 +105,21 @@ def retrospective_report(riverids=None, user_data=None):
         raise ValueError("Must provide either 'riverids' or 'data'")
 
     return _save_plots_to_docx(figures, "retrospective_report.docx", "Retrospective Report")
+
+def in_depth_retro(riverid=None, user_data=None):
+
+    if riverid is not None:
+        daily = retro_daily(riverid)
+        monthly = retro_monthly(riverid)
+        yearly = retro_yearly(riverid)
+
+        fig1 = plots.daily_averages(daily)
+        fig2 = plots.monthly_averages(monthly)
+        fig3 = plots.annual_averages(yearly)
+
+    elif user_data is not None:
+        fig1 = plots.daily_averages(user_data)
+        fig2 = plots.monthly_averages(user_data)
+        fig3 = plots.annual_averages(user_data)
+
+    return _save_plots_to_docx([fig1, fig2, fig3], f"in_depth_report_{riverid}.docx", "Daily Averages")
