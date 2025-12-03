@@ -113,13 +113,27 @@ def in_depth_retro(riverid=None, user_data=None):
         monthly = retro_monthly(riverid)
         yearly = retro_yearly(riverid)
 
-        fig1 = plots.daily_averages(daily)
-        fig2 = plots.monthly_averages(monthly)
-        fig3 = plots.annual_averages(yearly)
+        fig1 = plots.daily_averages(daily, plot_titles=["", f"Daily Averages for River {riverid}"])
+        fig2 = plots.monthly_averages(monthly, plot_titles=["", f"Monthly Averages for River {riverid}"])
+        fig3 = plots.annual_averages(yearly, plot_titles=["", f"Annual Averages for River {riverid}"])
 
     elif user_data is not None:
         fig1 = plots.daily_averages(user_data)
         fig2 = plots.monthly_averages(user_data)
         fig3 = plots.annual_averages(user_data)
 
-    return _save_plots_to_docx([fig1, fig2, fig3], f"in_depth_report_{riverid}.docx", "Daily Averages")
+    return _save_plots_to_docx([fig1, fig2, fig3], f"in_depth_report_{riverid}.docx", "In Depth Retro")
+
+def return_period_comparison(riverids, date):
+    formatted_date = pd.to_datetime(date).strftime('%Y%m%d')
+    figures = []
+    for r in riverids:
+        data = forecast(river_id=r, date=formatted_date)
+        return_period = return_periods(river_id=r)
+        fig = plots.forecast(df=data, rp_df=return_period)
+        figures.append(fig)
+    return _save_plots_to_docx(figures, f"return_period_comparison_{date}.docx", "Return Period Comparison")
+
+
+
+
