@@ -61,21 +61,32 @@ def forecast_report(riverids, date):
 
     figures = []
 
-    formatted_date = pd.to_datetime(date).strftime('%Y%m%d')
+    if not isinstance(riverids, list):
+        riverids = [riverids]
 
-    for r in riverids:
-        data = forecast(river_id=r, date=formatted_date)
-        fig = plots.forecast(data, plot_titles=["", f"Forecast for River: {r}"])
-        figures.append(fig)
+    if not isinstance(date, list):
+        dates = [date]
+    else:
+        dates = date
+
+    for d in dates:
+        formatted_date = pd.to_datetime(str(d)).strftime('%Y%m%d')
+
+        for r in riverids:
+            data = forecast(river_id=r, date=formatted_date)
+            fig = plots.forecast(data, plot_titles=["", f"Forecast for River: {r}"])
+            figures.append(fig)
 
     report_date = date
-
 
     return _save_plots_to_docx(figures, f"forecast_report_{report_date}.docx", "Forecast Report")
 
 def retrospective_report(riverids):
 
     figures = []
+
+    if not isinstance(riverids, list):
+        riverids = [riverids]
 
     for r in riverids:
         data = retrospective(river_id=r)
@@ -84,7 +95,7 @@ def retrospective_report(riverids):
 
     return _save_plots_to_docx(figures, "retrospective_report.docx", "Retrospective Report")
 
-def in_depth_retro(riverid=None):
+def in_depth_retro(riverid):
 
     daily = retro_daily(riverid)
     monthly = retro_monthly(riverid)
@@ -94,21 +105,23 @@ def in_depth_retro(riverid=None):
     fig2 = plots.monthly_averages(monthly, plot_titles=["", f"Monthly Averages for River {riverid}"])
     fig3 = plots.annual_averages(yearly, plot_titles=["", f"Annual Averages for River {riverid}"])
 
-
     return _save_plots_to_docx([fig1, fig2, fig3], f"in_depth_report_{riverid}.docx", "In Depth Retro")
 
-## this one isn't really working, talk to riley about the return comparison graphs
 def return_period_comparison(riverids, date):
-    formatted_date = pd.to_datetime(date).strftime('%Y%m%d')
+
+    formatted_date = pd.to_datetime(str(date)).strftime('%Y%m%d')
+
     figures = []
+
+    if not isinstance(riverids, list):
+        riverids = [riverids]
+
     for r in riverids:
         data = forecast(river_id=r, date=formatted_date)
         return_period = return_periods(river_id=r)
         fig = plots.forecast(df=data, rp_df=return_period)
         figures.append(fig)
     return _save_plots_to_docx(figures, f"return_period_comparison_{date}.docx", "Return Period Comparison")
-
-
 
 
 
