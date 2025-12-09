@@ -57,73 +57,47 @@ def _save_plots_to_docx(figures, filename, report_type):
     return abs_path
 
 
-def forecast_report(riverids=None, user_data=None, date=None):
+def forecast_report(riverids, date):
 
     figures = []
 
-    if riverids is not None:
-        if date is None:
-            raise ValueError("date is required when providing riverids")
+    formatted_date = pd.to_datetime(date).strftime('%Y%m%d')
 
-        formatted_date = pd.to_datetime(date).strftime('%Y%m%d')
-
-        for r in riverids:
-            data = forecast(river_id=r, date=formatted_date)
-            fig = plots.forecast(data, plot_titles=["", f"Forecast for River: {r}"])
-            figures.append(fig)
-
-        report_date = date
-
-    elif user_data is not None:
-
-        fig = plots.forecast(user_data, plot_titles=["", f"Forecast for River"])
+    for r in riverids:
+        data = forecast(river_id=r, date=formatted_date)
+        fig = plots.forecast(data, plot_titles=["", f"Forecast for River: {r}"])
         figures.append(fig)
 
-        report_date = date if date else today
+    report_date = date
 
-    else:
-        raise ValueError("Must provide either 'riverids' or 'data'")
 
     return _save_plots_to_docx(figures, f"forecast_report_{report_date}.docx", "Forecast Report")
 
-def retrospective_report(riverids=None, user_data=None):
+def retrospective_report(riverids):
 
     figures = []
 
-    if riverids is not None:
-
-        for r in riverids:
-            data = retrospective(river_id=r)
-            fig = plots.retrospective(data, plot_titles=["", f"Retrospective for River: {r}"])
-            figures.append(fig)
-
-    elif user_data is not None:
-        fig = plots.retrospective(user_data, plot_titles=["", f"Forecast for River"])
+    for r in riverids:
+        data = retrospective(river_id=r)
+        fig = plots.retrospective(data, plot_titles=["", f"Retrospective for River: {r}"])
         figures.append(fig)
-
-    else:
-        raise ValueError("Must provide either 'riverids' or 'data'")
 
     return _save_plots_to_docx(figures, "retrospective_report.docx", "Retrospective Report")
 
-def in_depth_retro(riverid=None, user_data=None):
+def in_depth_retro(riverid=None):
 
-    if riverid is not None:
-        daily = retro_daily(riverid)
-        monthly = retro_monthly(riverid)
-        yearly = retro_yearly(riverid)
+    daily = retro_daily(riverid)
+    monthly = retro_monthly(riverid)
+    yearly = retro_yearly(riverid)
 
-        fig1 = plots.daily_averages(daily, plot_titles=["", f"Daily Averages for River {riverid}"])
-        fig2 = plots.monthly_averages(monthly, plot_titles=["", f"Monthly Averages for River {riverid}"])
-        fig3 = plots.annual_averages(yearly, plot_titles=["", f"Annual Averages for River {riverid}"])
+    fig1 = plots.daily_averages(daily, plot_titles=["", f"Daily Averages for River {riverid}"])
+    fig2 = plots.monthly_averages(monthly, plot_titles=["", f"Monthly Averages for River {riverid}"])
+    fig3 = plots.annual_averages(yearly, plot_titles=["", f"Annual Averages for River {riverid}"])
 
-    elif user_data is not None:
-        fig1 = plots.daily_averages(user_data)
-        fig2 = plots.monthly_averages(user_data)
-        fig3 = plots.annual_averages(user_data)
 
     return _save_plots_to_docx([fig1, fig2, fig3], f"in_depth_report_{riverid}.docx", "In Depth Retro")
 
+## this one isn't really working, talk to riley about the return comparison graphs
 def return_period_comparison(riverids, date):
     formatted_date = pd.to_datetime(date).strftime('%Y%m%d')
     figures = []
@@ -133,6 +107,8 @@ def return_period_comparison(riverids, date):
         fig = plots.forecast(df=data, rp_df=return_period)
         figures.append(fig)
     return _save_plots_to_docx(figures, f"return_period_comparison_{date}.docx", "Return Period Comparison")
+
+
 
 
 
