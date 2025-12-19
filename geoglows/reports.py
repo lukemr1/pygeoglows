@@ -12,7 +12,6 @@ from docx.oxml import OxmlElement
 from docx2pdf import convert
 
 import pandas as pd
-from plotly.subplots import make_subplots
 
 # Assuming these are local imports from your package
 from .data import *
@@ -41,7 +40,7 @@ def _add_cover_page(doc, report_type):
             logo_run.add_picture(logo_stream, width=Inches(3))
             doc.add_paragraph("\n")
     except Exception:
-        pass  # Skip logo if offline
+        pass
 
     # --- 2. Title Section ---
     title_p = doc.add_paragraph()
@@ -58,13 +57,13 @@ def _add_cover_page(doc, report_type):
     subtitle_run.italic = True
 
     # --- 3. Spacer to push references to bottom ---
-    doc.add_paragraph("\n" * 12)
+    doc.add_paragraph("\n" * 15)
 
-    # --- 4. References & Sources (Bottom) ---
+    # --- 4. References & Sources ---
     doc.add_heading("Data Sources & References", level=2)
 
     sources = [
-        ("Primary Forecast Engine", "RFS-Hydroviewer API (GEOGloWS ECMWF Streamflow Service)"),
+        ("Primary Forecast Engine", "RFS-Hydroviewer API (GEOGloWS ECMWF Streamflow Service) | https://hydroviewer.geoglows.org"),
         ("Historical Data", "AWS Public Dataset: s3://geoglows-v2-retrospective"),
         ("Training & Documentation", "https://geoglows.org/training"),
         ("More Information", "https://geoglows.org/")
@@ -97,7 +96,6 @@ def _save_plots_to_file(figures_or_streams, filename, report_type, output_format
         section.top_margin = Inches(1.0)
         section.bottom_margin = Inches(1.0)
 
-    # Add the professional cover page
     _add_cover_page(doc, report_type)
 
     doc.add_heading(f'{report_type} - Visualizations', 1)
@@ -152,9 +150,9 @@ def _save_plots_to_file(figures_or_streams, filename, report_type, output_format
         return abs_path
 
 
-def _add_return_period_table(doc, rp_df, ensemble_df):
+def _add_return_period_table(doc, rp_df, ensemble_df, forecast_df):
     """
-    Add return periods as a formatted table with probabilities.
+    Add return periods table with flow values listed below.
     """
     doc.add_heading('Return Period Thresholds', level=2)
 
@@ -220,7 +218,30 @@ def _add_return_period_table(doc, rp_df, ensemble_df):
                     run.bold = True
                     run.font.color.rgb = RGBColor(200, 0, 0)
 
-    doc.add_paragraph("\n")
+    ## optional forecast flow values at the bottom, not sure if this is useful or not
+    '''doc.add_paragraph("\n")
+
+    # Add flow values below as readable text
+    doc.add_heading('Forecast Flow Values (m³/s)', level=3)
+
+    flow_text = ""
+    for date in forecast_dates:
+        try:
+            target_date = pd.to_datetime(date).normalize()
+            daily_flows = forecast_df[forecast_df.index.normalize() == target_date]['flow_median']
+
+            if len(daily_flows) > 0:
+                flow_value = daily_flows.mean()
+                date_str = pd.to_datetime(date).strftime('%b %d')
+                flow_text += f"{date_str}: {flow_value:,.0f}  |  "
+        except:
+            pass
+
+    # Add as a paragraph with nice formatting
+    flow_para = doc.add_paragraph(flow_text.rstrip("  |  "))
+    flow_para.style = 'Normal'
+
+    doc.add_paragraph("\n")'''
 
 
 # ==========================================
@@ -250,7 +271,8 @@ def _process_return_period_task(r, d):
 
     return {
         "river_id": r, "date": d, "img_stream": img_stream,
-        "rp_df": rp_df, "ensemble_data": ensemble_data
+        "rp_df": rp_df, "ensemble_data": ensemble_data,
+        "forecast_data": forecast_data
     }
 
 
@@ -341,7 +363,7 @@ def return_period_comparison(riverids, dates, output_format='docx'):
         doc.add_paragraph("\n")
 
         # Add Table
-        _add_return_period_table(doc, res['rp_df'], res['ensemble_data'])
+        _add_return_period_table(doc, res['rp_df'], res['ensemble_data'], res['forecast_data'])
 
         doc.add_heading(f'Comments for Figure {figure_num}', level=2)
         doc.add_paragraph("Notes:")
