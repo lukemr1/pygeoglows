@@ -13,12 +13,10 @@ from docx2pdf import convert
 
 import pandas as pd
 
-# Assuming these are local imports from your package
 from .data import *
 from ._plots import plots
 
 today = datetime.date.today()
-
 
 # ==========================================
 # INTERNAL HELPER FUNCTIONS
@@ -43,7 +41,7 @@ def _add_cover_page(doc, report_type):
         pass
 
     # --- 2. Title Section ---
-    title_p = doc.add_paragraph()
+    title_p = doc.add_paragraph("\n" * 6)
     title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title_run = title_p.add_run("Hydrology Report")
     title_run.bold = True
@@ -57,16 +55,16 @@ def _add_cover_page(doc, report_type):
     subtitle_run.italic = True
 
     # --- 3. Spacer to push references to bottom ---
-    doc.add_paragraph("\n" * 15)
+    doc.add_paragraph("\n" * 9)
 
     # --- 4. References & Sources ---
     doc.add_heading("Data Sources & References", level=2)
 
     sources = [
-        ("Primary Forecast Engine", "RFS-Hydroviewer API (GEOGloWS ECMWF Streamflow Service) | https://hydroviewer.geoglows.org"),
-        ("Historical Data", "AWS Public Dataset: s3://geoglows-v2-retrospective"),
-        ("Training & Documentation", "https://geoglows.org/training"),
-        ("More Information", "https://geoglows.org/")
+        ("Primary Forecast Engine", "RFS-Hydroviewer API https://hydroviewer.geoglows.org"),
+        ("Historical Data", "AWS Public Dataset:\n s3://geoglows-v2-retrospective"),
+        ("Training & Documentation", "https://training.geoglows.org"),
+        ("More Information", "https://www.geoglows.org")
     ]
 
     table = doc.add_table(rows=0, cols=2)
@@ -152,34 +150,59 @@ def _save_plots_to_file(figures_or_streams, filename, report_type, output_format
 
 def _add_return_period_table(doc, rp_df, ensemble_df, forecast_df):
     """
-    Add return periods table with flow values listed below.
+    Add return periods table with probabilities based on daily maximum flows.
+
+    This matches the JavaScript approach: for each day, we find the maximum flow
+    across all timesteps within that day, then calculate the probability that
+    this daily maximum exceeds each return period threshold.
     """
     doc.add_heading('Return Period Thresholds', level=2)
 
-    all_dates = pd.to_datetime(ensemble_df.index)
-    unique_dates = all_dates.normalize().unique()[:15]
+    # Step 1: Convert ensemble_df index to datetime and get unique dates
+    ensemble_df.index = pd.to_datetime(ensemble_df.index)
 
+    # Get unique dates (up to 15 days)
+    unique_dates = ensemble_df.index.normalize().unique()[:15]
+
+    # Step 2: Calculate daily maximums for each ensemble member
+    # ensemble_df has columns for each ensemble member (e.g., '0', '1', '2', ...)
+    # We'll create a new dataframe where each row is a day and each column is an ensemble member's daily max
+
+    daily_max_data = []
     forecast_dates = []
+
     for unique_date in unique_dates:
-        matching_idx = [idx for idx in ensemble_df.index if pd.to_datetime(idx).date() == unique_date.date()]
-        if matching_idx:
-            forecast_dates.append(matching_idx[0])
+        # Get all timesteps for this date
+        mask = ensemble_df.index.normalize() == unique_date
+        day_data = ensemble_df[mask]
 
-    num_dates = min(len(forecast_dates), 15)
-    forecast_dates = forecast_dates[:num_dates]
+        if len(day_data) > 0:
+            # For each ensemble member (column), get the maximum value for this day
+            daily_max = day_data.max(axis=0)  # max across all timesteps for each member
+            daily_max_data.append(daily_max)
+            forecast_dates.append(unique_date)
 
+    # Create a DataFrame where each row is a day, each column is an ensemble member
+    daily_max_df = pd.DataFrame(daily_max_data, index=forecast_dates)
+
+    num_dates = len(forecast_dates)
+
+    # Step 3: Create the table structure
     table = doc.add_table(rows=len(rp_df) + 1, cols=num_dates + 1)
     table.style = 'Light Grid Accent 1'
 
+    # Prevent row splitting across pages
     for row in table.rows:
         tr = row._tr
         trPr = tr.get_or_add_trPr()
         trPr.append(OxmlElement('w:cantSplit'))
 
+    # Set column widths
     table.columns[0].width = Inches(1.3)
     for i in range(1, num_dates + 1):
         table.columns[i].width = Inches(0.65)
 
+    # Step 4: Create header row
     hdr_cells = table.rows[0].cells
     hdr_cells[0].text = 'Return Periods'
     hdr_cells[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -187,28 +210,39 @@ def _add_return_period_table(doc, rp_df, ensemble_df, forecast_df):
         run.font.size = Pt(7)
         run.font.bold = True
 
+    # Add date headers
     for col_idx, date in enumerate(forecast_dates, start=1):
         cell = hdr_cells[col_idx]
-        cell.text = pd.to_datetime(date).strftime('%b %d')
+        cell.text = date.strftime('%b %d')
         cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
         for run in cell.paragraphs[0].runs:
             run.font.size = Pt(6)
 
+    # Step 5: Fill in probability data for each return period
     for row_idx, (period, row) in enumerate(rp_df.iterrows(), start=1):
         threshold = row.iloc[0]
         row_cells = table.rows[row_idx].cells
 
+        # First column: return period label with threshold value
         cell = row_cells[0]
         cell.text = f"{period} ({threshold:,.0f})"
         cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
         for run in cell.paragraphs[0].runs:
             run.font.size = Pt(7)
 
+        # Calculate probability for each day
         for col_idx, date in enumerate(forecast_dates, start=1):
-            ensemble_values = ensemble_df.loc[date]
-            num_exceeding = (ensemble_values > threshold).sum()
-            probability = (num_exceeding / len(ensemble_values)) * 100
+            # Get the daily maximum values for all ensemble members on this date
+            daily_max_values = daily_max_df.loc[date]
 
+            # Count how many ensemble members exceed the threshold
+            num_exceeding = (daily_max_values > threshold).sum()
+            num_members = len(daily_max_values)
+
+            # Calculate probability as percentage
+            probability = (num_exceeding / num_members) * 100 if num_members > 0 else 0
+
+            # Format the cell
             cell = row_cells[col_idx]
             cell.text = f"{probability:.0f}%"
             cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
