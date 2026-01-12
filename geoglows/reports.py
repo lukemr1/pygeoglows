@@ -96,8 +96,6 @@ def _save_plots_to_file(figures_or_streams, filename, report_type, output_format
 
     _add_cover_page(doc, report_type)
 
-    doc.add_heading(f'{report_type} - Visualizations', 1)
-
     for i, item in enumerate(figures_or_streams):
         # Optimization: Handle pre-rendered bytes or raw figures
         if input_is_bytes:
@@ -122,6 +120,10 @@ def _save_plots_to_file(figures_or_streams, filename, report_type, output_format
         doc.add_paragraph("\n")
 
         doc.add_page_break()
+
+    doc.add_heading('Overall Comments', level=1)
+    doc.add_paragraph("Please add any additional notes regarding this report below:")
+    doc.add_paragraph("\n" * 10)
 
     downloads_path = str(Path.home() / "Downloads")
 
